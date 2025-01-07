@@ -1,0 +1,63 @@
+What Is a BootExecute EDR Bypass?
+
+The BootExecute registry key is a crucial component of the Windows operating system, tasked with executing commands during the boot process. This execution happens early, often before most security tools, including Endpoint Detection and Response (EDR) systems, are fully operational.
+Attackers exploit this key to run malicious code at the boot stage, effectively bypassing security mechanisms. By doing so, they can achieve persistence, maintain stealth, and even disable security tools, allowing their malware to evade detection and retain control over the system.
+
+Cybersecurity is all about proactive monitoring and robust detection strategies. Here are two effective ways to track critical registry modifications and suspicious file creations, depending on your organization’s capabilities:
+
+The query I’ve developed is designed to detect these types of manipulations, helping to identify and mitigate such bypass attempts early.
+
+Method 1: Using Event IDs
+If your organization tracks event IDs, this rule will help you monitor key registry changes and file creation events:
+
+// Detect changes to critical registry keys using Event ID 4657
+let BootExecuteRegistryChanges = SecurityEvent
+| where EventID == 4657
+| where ObjectName in~(
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\BootExecute”,
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\BootExecuteNoPnpSync”,
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\SetupExecute”,
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\PlatformExecute”)
+| project Timestamp, Computer, SubjectAccountName, ObjectName, ObjectValue;
+// Detect creation of files in the System32 directory
+let SuspiciousFileCreation = DeviceFileEvents
+| where ActionType == “FileCreated”
+| where FolderPath == “C:\\Windows\\System32”
+| project Timestamp, DeviceName, InitiatingProcessAccountName, FolderPath, FileName;
+// Combine results and sort by timestamp
+BootExecuteRegistryChanges
+| union SuspiciousFileCreation
+| order by TimeGenerated desc
+
+Method 2: Without Event IDs
+If your organization does not track event IDs, use this alternative rule to detect changes in specific registry keys and suspicious file creations:
+
+// Detect changes to specific registry keys
+let RegistryChanges = DeviceRegistryEvents
+| where RegistryKey in~(
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\BootExecute”,
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\BootExecuteNoPnpSync”,
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\SetupExecute”,
+“HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\PlatformExecute”)
+| project Timestamp, DeviceName, InitiatingProcessAccountName, RegistryKey, RegistryValueName, RegistryValueData,DeviceId, ReportId;
+// Detect the creation of files in the System32 directory
+let SuspiciousFileCreation = DeviceFileEvents
+| where ActionType == “FileCreated”
+| where FolderPath == “C:\\Windows\\System32”
+| project Timestamp, DeviceName, InitiatingProcessAccountName, FolderPath, FileName, DeviceId, ReportId;
+// Combine results and sort by timestamp
+RegistryChanges
+| join SuspiciousFileCreation on DeviceName
+| order by Timestamp desc
+
+🔍 Why this is important:
+Versatile Detection: These rules provide flexibility based on your organization’s capabilities, ensuring you can monitor key registry changes and file creations, irrespective of whether event IDs are tracked.
+
+Comprehensive Coverage: By keeping an eye on critical registry keys and sensitive directories like C:\Windows\System32, these rules help identify early signs of malicious activities.
+
+Enhanced Incident Response: Correlating registry and file events gives a more complete picture of potential security incidents, allowing for quicker and more accurate responses.
+
+Stay proactive and keep your defenses strong! Let’s share and learn together to make our digital spaces more secure! 💻🔐
+
+
+BootExecute EDR bypass
