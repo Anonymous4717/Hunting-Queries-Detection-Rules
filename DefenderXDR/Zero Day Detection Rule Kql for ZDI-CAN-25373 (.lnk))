@@ -1,0 +1,19 @@
+Zero Day Detection for ZDI-CAN-25373 🔥
+
+Trend Micro’s ZDI bug bounty program submitted a proof-of-concept exploit to Microsoft, but unfortunately, Microsoft chose not to patch the vulnerability. At least 11 state-backed hacking groups from North Korea, Iran, Russia, and China have been exploiting this Windows flaw in zero-day attacks for cyber espionage and data theft. 
+But don’t worry—it’s KQL Time! Let’s unleash the ShellLink detection spell 🪄 and empower defenders to stay ahead of the threat! 🚀
+
+https://lnkd.in/g9Xdy56c There is a Yara Rule also available on the website.
+
+let suspiciousRegex = @"(?i)(cmd|powershell|wscript|cscript|mshta|rundll32)";
+search in (DeviceEvents,DeviceProcessEvents)*
+| where FileName matches regex @".+\.[a-zA-Z0-9]+\.(lnk)$"
+| where parse_json(AdditionalFields) ["ShellLinkWorkingDirectory"] matches regex suspiciousRegex 
+| extend ShellLinkWorkingDirectory = parse_json(AdditionalFields) ["ShellLinkWorkingDirectory"]
+| where ShellLinkWorkingDirectory != ""
+|where tostring(AdditionalFields) contains "ShellLink"
+//| where parse_json(AdditionalFields) ["ShellLinkShowCommand"] != 'SW_SHOWNORMAL'
+|extend ShellLinkCommandLine = parse_json(AdditionalFields) ["ShellLinkCommandLine"]
+|extend ShellLinkIconPath = parse_json(AdditionalFields) ["ShellLinkIconPath"]
+|where ShellLinkCommandLine != ""
+| project Timestamp,DeviceName,ShellLinkWorkingDirectory,ShellLinkCommandLine , FileName, ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessAccountUpn , InitiatingProcessAccountName
