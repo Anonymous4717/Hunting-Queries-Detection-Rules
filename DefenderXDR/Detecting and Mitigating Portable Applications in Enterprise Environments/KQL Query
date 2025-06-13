@@ -1,32 +1,24 @@
-// Query developed by Vinay Patel on 21st Oct 2024 to detect potential portable apps running in Organization 
-// Modified by Ankit Rai to include latest instances
-
 search in (DeviceProcessEvents, DeviceFileEvents)*
-| where not (FileName endswith ".dll" 
-             or FileName endswith ".rb" 
-             or FileName endswith ".pyd" 
-             or FileName endswith ".mui" 
-             or FileName endswith ".SQLite" 
-             or FileName endswith ".winmd" 
-             or FileName endswith ".gif" 
-             or FileName endswith ".pdf" 
-             or FileName endswith ".jsp" 
-             or FileName endswith ".html" 
-             or FileName endswith ".htm" 
-             or FileName endswith ".xml" 
-             or FileName endswith ".xlsx") 
-// Add extensions here to whitelist and reduce false-positive alerts based on organizational requirements.
-
-| where FileName matches regex @"[^\+](\w+.paf.exe)" 
-       or FileName has "portable"
-       or (InitiatingProcessCommandLine has_any ("CNET", "PortableApps", "Pendriveapps.org", "TinyApps.org", "PortableFreeware.com") 
-           or FolderPath has_any ("CNET", "PortableApps", "Pendriveapps.org", "TinyApps.org", "PortableFreeware.com"))
-       or ProcessVersionInfoCompanyName has_any ("CNET", "PortableApps", "Pendriveapps.org", "TinyApps.org", "PortableFreeware.com", 
-                                                 "portapps.io", "crazymax", "softpedia", "The Portable Freeware Collection", 
-                                                 "MajorGeeks", "Pendriveapps", "Thumbapps", "The House of Portable", 
-                                                 "liberkey", "winpenpack", "nirsoft", "pendriveapps", "paf", 
-                                                 "lupo", "portablelinuxapps", "cameyo", "geek", "john's") 
-       or ProcessVersionInfoProductName contains " portable"
-
+| where not (
+    FileName matches regex @"(?i)\.(dll|rb|pyd|mui|SQLite|winmd|gif|pdf|jsp|html|htm|xml|xlsx|portable-net45+win8+wp8+wpa81|jar|config|net|doc|vsdx|csv|txt|svg|png|docx|pem|py|js|docx.lnk)$"
+    or FileName contains "UiPath.BrowserBridge.Portable.exe"
+    or FileName contains "portable-wp"
+)
+| where (
+    FileName matches regex @"[^\+](\w+.paf.exe)"
+    or FileName has "portable"
+    or InitiatingProcessCommandLine has_any ("PortableApps", "Pendriveapps.org", "TinyApps.org", "PortableFreeware.com")
+    or FolderPath has_any ("CNET", "PortableApps", "Pendriveapps.org", "TinyApps.org", "PortableFreeware.com")
+    or ProcessVersionInfoCompanyName has_any ("PortableApps", "Pendriveapps.org", "TinyApps.org", "PortableFreeware.com", "portapps.io", "crazymax", "softpedia", "The Portable Freeware Collection", "MajorGeeks", "Pendriveapps", "Thumbapps", "The House of Portable", "liberkey", "winpenpack", "nirsoft", "pendriveapps", "paf", "lupo", "portablelinuxapps", "cameyo", "geek", "john's")
+    or ProcessVersionInfoProductName contains "portable"
+)
+| where not (
+    (DeviceName contains "bs" and FileName contains "HeidiSql")
+    or (DeviceName contains "bs" and FileName contains "PingInfoView.exe") 
+    or (DeviceName contains "us3" and FileName contains "MobaXterm_Portable") 
+    or (DeviceName contains "bpun3" and FileName contains "PingInfoView.exe") 
+    or (DeviceName contains "I-7" and FileName contains "pdf24.exe") // RITM
+    or (DeviceName contains "bp5" and FileName contains "PingInfoView.exe") // for whitlisting people
+    )
 | summarize arg_max(Timestamp, *) by FileName
 | project Timestamp, FileName, ReportId, DeviceId, InitiatingProcessCommandLine, AccountUpn, DeviceName, FolderPath, SHA1, InitiatingProcessSignatureStatus, InitiatingProcessVersionInfoCompanyName
